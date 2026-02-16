@@ -3,7 +3,43 @@
 ```bash
 sudo apt update && sudo apt install -y gnome-shell-extension-desktop-icons-ng && gnome-extensions enable ding@rastersoft.com
 ```
-
+## Dash to panel
+```bash
+sudo apt install gnome-shell-extension-dash-to-panel
+```
+```bash
+gnome-extensions enable dash-to-panel@jderose9.github.com
+```
+## Add desktop numbers
+```bash
+sudo apt install -y gnome-shell-extensions
+```
+```bash
+gnome-extensions enable workspace-indicator@gnome-shell-extensions.gcampax.github.com
+```
+## Speed up UI animation
+```bash
+gsettings set org.gnome.desktop.interface enable-animations true
+```
+## Window snap tiling
+```bash
+gsettings set org.gnome.shell.extensions.dash-to-dock require-pressure-to-show false && gsettings set org.gnome.mutter edge-tiling true 
+```
+```bash
+gsettings set org.gnome.desktop.wm.preferences mouse-button-modifier '<Super>'
+```
+## Add maximize minimize buttons
+```bash
+gsettings set org.gnome.desktop.interface gtk-decoration-layout "appmenu:minimize,maximize,close"
+```
+## Minimize app when clicked in dock
+```bash
+gsettings set org.gnome.shell.extensions.dash-to-dock click-action 'minimize'
+```
+## Alt + TAB
+```bash
+gsettings set org.gnome.desktop.wm.keybindings switch-applications "[]" && gsettings set org.gnome.desktop.wm.keybindings switch-windows "['<Alt>Tab']"
+```
 ## Dekstop trash generator 9000
 ```bash
 touch ~/Templates/"New Image.png"
@@ -12,15 +48,12 @@ touch ~/Templates/"New Image.png"
 touch ~/Templates/"New File.txt"
 ```
 ## Rename drawing to paint
-Install
 ```bash
 sudo snap install drawing
 ```
- Rename to paint
 ```bash
 cp /usr/share/applications/org.gnome.drawing.desktop ~/.local/share/applications/paint.desktop
 ```
-Search entries
 ```bash
 cat <<EOF > ~/.local/share/applications/paint.desktop
 [Desktop Entry]
@@ -37,7 +70,7 @@ StartupNotify=true
 EOF
 ```
 
-## Snipping tool
+## Rename screenshot Snipping tool
 ```bash
 cp /usr/share/applications/org.gnome.Screenshot.desktop ~/.local/share/applications/snipping-tool.desktop
 ```
@@ -61,7 +94,26 @@ EOF
 update-desktop-database ~/.local/share/applications/
 ```
 
-## 
+## Breadcrumbs
+```bash
+sudo apt install -y zsh && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+```
+```bash
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+```
+```bash
+sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+```
+```bash
+git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+```
+```bash
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+```
+```bash
+sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' ~/.zshrc
+source ~/.zshrc
+```
 
 # Install Virtualization for your "User Space" Window
 ```bash
@@ -114,4 +166,5 @@ Increase file limits for heavy OpenFOAM parallel solves
 ```bash
 echo -e "* soft nofile 524288\n* hard nofile 524288" | sudo tee -a /etc/security/limits.conf
 ```
+
 

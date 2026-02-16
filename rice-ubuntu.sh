@@ -1,11 +1,4 @@
 #!/bin/bash
-
-# =================================================================
-#           UBUNTU WINDOWS 7 RICE - "THE LIBRARIAN" (v2.1)
-# =================================================================
-LOG_FILE="/tmp/librarian_$(date +%Y%m%d_%H%M%S).log"
-touch "$LOG_FILE"
-
 clear
 cat << "EOF"
           _nnnn_
@@ -26,110 +19,74 @@ cat << "EOF"
       `-'       `--' hjm
 EOF
 echo -e "Detailed logs: \033[1;32m$LOG_FILE\033[0m"
+
 # =================================================================
+#           UBUNTU WINDOWS 7 RICE - "THE LIBRARIAN" (v3.0)
+# =================================================================
+LOG_FILE="/tmp/librarian_$(date +%Y%m%d_%H%M%S).log"
 
-# Flags
-INSTALL_UI=false; INSTALL_APPS=false; INSTALL_ZSH=false
-INSTALL_VIRT=false; INSTALL_GAMING=false; INSTALL_LIBRARIAN=false
+# Ensure we have the right environment for GNOME commands
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
 
-echo -e "\n\033[1;34m--- INSTALLATION MENU ---\033[0m"
-echo "1) [ALL]   Full Windows 7 Workstation Setup"
-echo "2) [UI]    Win7 Layout, Dash-to-Panel, Aero Snap"
-echo "3) [APPS]  Paint, Snipping Tool, Desktop Templates"
-echo "4) [TERM]  ZSH, Powerlevel10k Breadcrumbs, Plugins"
-echo "5) [VIRT]  KVM, Virt-Manager (User Space Windows)"
-echo "6) [GAME]  Steam, GameMode, GPU Drivers"
-echo "7) [SPEC]  ZFS ARC Limits, OpenFOAM File Limits"
-echo "q) [QUIT]  Exit"
-echo "-------------------------"
-read -p "Select options: " choice
+clear
+echo "Logging to: $LOG_FILE"
 
-case $choice in
-    *1*) INSTALL_UI=true; INSTALL_APPS=true; INSTALL_ZSH=true; INSTALL_VIRT=true; INSTALL_GAMING=true; INSTALL_LIBRARIAN=true ;;
-    *2*) INSTALL_UI=true ;;
-    *3*) INSTALL_APPS=true ;;
-    *4*) INSTALL_ZSH=true ;;
-    *5*) INSTALL_VIRT=true ;;
-    *6*) INSTALL_GAMING=true ;;
-    *7*) INSTALL_LIBRARIAN=true ;;
-    *q*) exit 0 ;;
-esac
+# 1. MENU
+echo -e "1) ALL\n2) UI\n3) APPS\n4) ZSH\n5) VIRT\n6) GAME\n7) SPEC\nq) QUIT"
+read -p "Selection: " choice
 
+[[ "$choice" == "q" ]] && exit 0
+
+# 2. THE RELIABLE RUNNER
 run_task() {
-    local task_name=$1
-    shift
-    echo -ne " [....] $task_name"
-    echo "--- STARTING: $task_name ---" >> "$LOG_FILE"
+    echo -n " [....] $1"
+    # Log the command for debugging
+    echo "--- TASK: $1 ---" >> "$LOG_FILE"
     
-    # Use dbus-launch for gsettings/gnome-extensions commands to prevent dconf errors
-    if eval "$@" >> "$LOG_FILE" 2>&1; then
-        echo -e "\r [\033[0;32m DONE \033[0m] $task_name"
+    # Execute and capture EVERYTHING to log
+    if eval "${@:2}" >> "$LOG_FILE" 2>&1; then
+        echo -e "\r [\033[0;32m DONE \033[0m] $1"
     else
-        echo -e "\r [\033[0;31m FAIL \033[0m] $task_name"
+        echo -e "\r [\033[0;31m FAIL \033[0m] $1 (See log)"
     fi
 }
 
-echo -e "\n\033[1;33mStarting Tasks...\033[0m\n"
-
+# 0. PRE-FLIGHT
 sudo -v
+run_task "System Update" "sudo apt update"
 
-# 0. Dependencies
-run_task "Core Tools" "sudo apt update && sudo apt install -y curl dbus-x11 git"
-
-# 1. UI Overhaul
-if [ "$INSTALL_UI" = true ]; then
-    # Fix: Use the standard extensions pack since specific names vary by Ubuntu version
-    run_task "Installing Extensions" "sudo apt install -y gnome-shell-extension-prefs gnome-shell-extension-manager gnome-shell-extensions gnome-screenshot"
+# 1. UI (The "Reliable" Way)
+if [[ $choice == *1* || $choice == *2* ]]; then
+    run_task "Install UI Tools" "sudo DEBIAN_FRONTEND=noninteractive apt install -y gnome-shell-extension-manager gnome-shell-extensions gnome-screenshot"
     
-    # Fix: Use dbus-launch to ensure the script can talk to your session
-    run_task "Enabling Win7 Layout" "dbus-launch gnome-extensions enable ding@rastersoft.com && dbus-launch gnome-extensions enable dash-to-panel@jderose9.github.com"
+    # Force Master Extension Switch ON
+    run_task "Master Switch" "gsettings set org.gnome.shell disable-user-extensions false"
     
-    # Fix: Corrected gsettings path for window buttons
-    run_task "Configuring Aero Snap" "gsettings set org.gnome.mutter edge-tiling true && gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'"
+    # Apply Aero Window Buttons
+    run_task "Win7 Buttons" "gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'"
+    
+    # Try enabling extensions (Will fail if not downloaded yet, which is expected on Noble)
+    run_task "Enable DING" "gnome-extensions enable ding@rastersoft.com"
 fi
 
-# 2. Apps
-if [ "$INSTALL_APPS" = true ]; then
-    run_task "Creating Templates" "mkdir -p ~/Templates && touch ~/Templates/'New Image.png' ~/Templates/'New File.txt'"
-    run_task "Installing Paint" "sudo snap install drawing"
-    run_task "Mapping Paint/Snip" "cat <<EOF > ~/.local/share/applications/paint.desktop
-[Desktop Entry]
-Name=Paint
-Exec=snap run drawing %U
-Icon=drawing
-Type=Application
-EOF
-cat <<EOF > ~/.local/share/applications/snipping-tool.desktop
-[Desktop Entry]
-Name=Snipping Tool
-Exec=gnome-screenshot -i
-Icon=org.gnome.Screenshot
-Type=Application
-EOF"
-    update-desktop-database ~/.local/share/applications/
+# 2. APPS
+if [[ $choice == *1* || $choice == *3* ]]; then
+    run_task "Templates" "mkdir -p ~/Templates && touch ~/Templates/'New Text.txt'"
+    run_task "Install Paint" "sudo snap install drawing"
 fi
 
 # 3. ZSH
-if [ "$INSTALL_ZSH" = true ]; then
-    run_task "Installing ZSH" "sudo apt install -y zsh git fastfetch"
-    if [ ! -d "$HOME/.oh-my-zsh" ]; then
-        run_task "Oh My Zsh" "curl -fsSL https://raw.githubusercontent.com/oh-my-zsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended"
-    fi
-    run_task "P10k Theme" "git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\$HOME/.oh-my-zsh/custom}/themes/powerlevel10k && sed -i 's/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"powerlevel10k\/powerlevel10k\"/' ~/.zshrc"
+if [[ $choice == *1* || $choice == *4* ]]; then
+    run_task "Install ZSH" "sudo apt install -y zsh git"
+    [ ! -d "$HOME/.oh-my-zsh" ] && run_task "OhMyZsh" "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended"
 fi
 
-# 4. Power User Features
-if [ "$INSTALL_VIRT" = true ]; then
-    run_task "Virtualization" "sudo apt install -y qemu-kvm libvirt-daemon-system virt-manager && sudo usermod -aG libvirt,kvm $USER"
+# 4. LIB/POWER USER
+if [[ $choice == *1* || $choice == *7* ]]; then
+    run_task "RTC Clock" "timedatectl set-local-rtc 1"
 fi
 
-if [ "$INSTALL_GAMING" = true ]; then
-    run_task "Gaming Libs" "sudo dpkg --add-architecture i386 && sudo apt update && sudo apt install -y steam-installer gamemode mangohud"
-fi
-
-if [ "$INSTALL_LIBRARIAN" = true ]; then
-    run_task "ZFS/Clock Sync" "timedatectl set-local-rtc 1 --adjust-system-clock"
-fi
-
-echo -e "\n\033[1;32m[COMPLETE]\033[0m Setup finished."
-echo "If UI changes didn't appear, press Alt+F2, type 'r', and hit Enter."
+echo -e "\n\033[1;33m!!! CRITICAL FINAL STEP !!!\033[0m"
+echo "1. Open 'Extension Manager' (search in your apps)."
+echo "2. Click 'Browse' -> Search 'Dash to Panel' -> Install."
+echo "3. Log out and Log back in."

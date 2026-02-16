@@ -1,27 +1,37 @@
 #!/bin/bash
 
 # =================================================================
-#            UBUNTU WINDOWS 7 RICE - "THE LIBRARIAN"
+#           UBUNTU WINDOWS 7 RICE - "THE LIBRARIAN"
 # =================================================================
+# Logging Setup
+LOG_FILE="/tmp/librarian_$(date +%Y%m%d_%H%M%S).log"
+touch "$LOG_FILE"
+
+exec > >(tee -a "$LOG_FILE") 2>&1 
+# Note: The line above sends everything to the console AND the log.
+# If you want the console to stay "clean" (stealth mode), 
+# we will handle redirection inside the run_task function instead.
+
 clear
 cat << "EOF"
           _nnnn_
-        dGGGGMMb
-       @p~qp~~qMb
-       M|@||@) M|
-       @,----.JM|
-      JS^\__/  qKL
-     dZP        qKRb
-    dZP          qKKb
-   fZP            SMMb
-   HZM            MMMM
-   FqM            MMMM
- __| ".         |\dS"qML
- |    `.       | `' \Zq
-_)      \.___.,|     .'
+         dGGGGMMb
+        @p~qp~~qMb
+        M|@||@) M|
+        @,----.JM|
+       JS^\__/  qKL
+      dZP         qKRb
+     dZP           qKKb
+    fZP             SMMb
+    HZM             MMMM
+    FqM             MMMM
+  __| ".         |\dS"qML
+  |    `.       | `' \Zq
+ _)      \.___.,|     .'
 \____    )MMMMMP|   .'
-     `-'       `--' hjm
+      `-'       `--' hjm
 EOF
+echo "Detailed logs are being written to: $LOG_FILE"
 # =================================================================
 
 # Flags
@@ -51,22 +61,28 @@ case $choice in
     *q*) exit 0 ;;
 esac
 
-# Stealth Progress Function - Fixed to handle multi-word commands
+# Enhanced Logging Task Function
 run_task() {
     local task_name=$1
     shift
     echo -ne " [....] $task_name"
-    # Execute the remaining arguments as a single command string
-    if eval "$@" > /dev/null 2>&1; then
+    
+    # Log the start of the task
+    echo "--- STARTING TASK: $task_name ---" >> "$LOG_FILE"
+    
+    # Execute command, capturing all output to the log file
+    if eval "$@" >> "$LOG_FILE" 2>&1; then
         echo -e "\r [\033[0;32m DONE \033[0m] $task_name"
+        echo "--- TASK SUCCESS: $task_name ---" >> "$LOG_FILE"
     else
-        echo -e "\r [\033[0;31m FAIL \033[0m] $task_name"
+        echo -e "\r [\033[0;31m FAIL \033[0m] $task_name (Check $LOG_FILE)"
+        echo "--- TASK FAILED: $task_name ---" >> "$LOG_FILE"
     fi
 }
 
 echo -e "\n\033[1;33mStarting Tasks...\033[0m\n"
 
-# 0. Pre-flight (Ask for sudo once to cache credentials)
+# 0. Pre-flight
 sudo -v
 
 run_task "Installing curl" "sudo apt update && sudo apt install -y curl"
@@ -96,15 +112,14 @@ Exec=gnome-screenshot -i
 Icon=org.gnome.Screenshot
 Type=Application
 EOF"
-    update-desktop-database ~/.local/share/applications/ > /dev/null 2>&1
+    update-desktop-database ~/.local/share/applications/ >> "$LOG_FILE" 2>&1
 fi
 
 # 3. ZSH
 if [ "$INSTALL_ZSH" = true ]; then
     run_task "Installing ZSH/Fastfetch" "sudo apt install -y zsh git fastfetch"
-    # Run OMZ installer with a check so it doesn't hang on sub-shells
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
-        run_task "Installing Oh My Zsh" "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended"
+        run_task "Installing Oh My Zsh" "curl -fsSL https://raw.githubusercontent.com/oh-my-zsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended"
     fi
     run_task "Adding Plugins & Theme" "git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \${ZSH_CUSTOM:-\$HOME/.oh-my-zsh/custom}/themes/powerlevel10k && sed -i 's/ZSH_THEME=\"robbyrussell\"/ZSH_THEME=\"powerlevel10k\/powerlevel10k\"/' ~/.zshrc"
 fi
@@ -124,4 +139,4 @@ if [ "$INSTALL_LIBRARIAN" = true ]; then
 fi
 
 echo -e "\n\033[1;32m[SUCCESS]\033[0m Processed selected tasks."
-echo "Note: Some UI changes may require a Logout or Alt+F2 > 'r' to take effect."
+echo "Full log available at: $LOG_FILE"

@@ -18,75 +18,80 @@ cat << "EOF"
 \____    )MMMMMP|   .'
       `-'       `--' hjm
 EOF
-echo -e "Detailed logs: \033[1;32m$LOG_FILE\033[0m"
+#!/bin/bash
 
-# =================================================================
-#           UBUNTU WINDOWS 7 RICE - "THE LIBRARIAN" (v3.0)
-# =================================================================
-LOG_FILE="/tmp/librarian_$(date +%Y%m%d_%H%M%S).log"
+# 1. SETUP LOGGING & ENVIRONMENT
+LOG="/tmp/rice.log"
+exec > >(tee -a "$LOG") 2>&1
+echo "--- Starting Windows 7 Librarian Rice: $(date) ---"
 
-# Ensure we have the right environment for GNOME commands
+# This allows the script to talk to your UI even if run from a weird terminal
 export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
 
-clear
-echo "Logging to: $LOG_FILE"
+# 2. CORE TOOLS
+echo "[1/6] Installing Core Tools..."
+sudo apt update
+sudo apt install -y curl git dbus-x11 gnome-shell-extension-manager gnome-shell-extensions gnome-screenshot zsh
 
-# 1. MENU
-echo -e "1) ALL\n2) UI\n3) APPS\n4) ZSH\n5) VIRT\n6) GAME\n7) SPEC\nq) QUIT"
-read -p "Selection: " choice
+# 3. THE UI FIX (Windows 7 Look)
+echo "[2/6] Applying Win7 UI Tweaks..."
+# Enable minimize/maximize buttons
+gsettings set org.gnome.desktop.interface gtk-decoration-layout "appmenu:minimize,maximize,close"
+# Snap tiling and animations
+gsettings set org.gnome.mutter edge-tiling true
+gsettings set org.gnome.desktop.interface enable-animations true
+# Alt+Tab fix (Switch windows, not apps)
+gsettings set org.gnome.desktop.wm.keybindings switch-applications "[]"
+gsettings set org.gnome.desktop.wm.keybindings switch-windows "['<Alt>Tab']"
 
-[[ "$choice" == "q" ]] && exit 0
+# 4. APPS & TEMPLATES (Paint & Snipping Tool)
+echo "[3/6] Configuring Apps..."
+sudo snap install drawing
+mkdir -p ~/.local/share/applications/
+mkdir -p ~/Templates
+touch ~/Templates/"New Image.png" ~/Templates/"New File.txt"
 
-# 2. THE RELIABLE RUNNER
-run_task() {
-    echo -n " [....] $1"
-    # Log the command for debugging
-    echo "--- TASK: $1 ---" >> "$LOG_FILE"
-    
-    # Execute and capture EVERYTHING to log
-    if eval "${@:2}" >> "$LOG_FILE" 2>&1; then
-        echo -e "\r [\033[0;32m DONE \033[0m] $1"
-    else
-        echo -e "\r [\033[0;31m FAIL \033[0m] $1 (See log)"
-    fi
-}
+# Create Paint Shortcut
+cat <<EOF > ~/.local/share/applications/paint.desktop
+[Desktop Entry]
+Name=Paint
+Exec=snap run drawing %U
+Icon=drawing
+Type=Application
+EOF
 
-# 0. PRE-FLIGHT
-sudo -v
-run_task "System Update" "sudo apt update"
+# Create Snipping Tool Shortcut
+cat <<EOF > ~/.local/share/applications/snipping-tool.desktop
+[Desktop Entry]
+Name=Snipping Tool
+Exec=gnome-screenshot -i
+Icon=org.gnome.Screenshot
+Type=Application
+EOF
 
-# 1. UI (The "Reliable" Way)
-if [[ $choice == *1* || $choice == *2* ]]; then
-    run_task "Install UI Tools" "sudo DEBIAN_FRONTEND=noninteractive apt install -y gnome-shell-extension-manager gnome-shell-extensions gnome-screenshot"
-    
-    # Force Master Extension Switch ON
-    run_task "Master Switch" "gsettings set org.gnome.shell disable-user-extensions false"
-    
-    # Apply Aero Window Buttons
-    run_task "Win7 Buttons" "gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'"
-    
-    # Try enabling extensions (Will fail if not downloaded yet, which is expected on Noble)
-    run_task "Enable DING" "gnome-extensions enable ding@rastersoft.com"
+update-desktop-database ~/.local/share/applications/
+
+# 5. TERMINAL (ZSH & Powerlevel10k)
+echo "[4/6] Setting up Terminal..."
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
+# P10k Theme
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k || true
+sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
 
-# 2. APPS
-if [[ $choice == *1* || $choice == *3* ]]; then
-    run_task "Templates" "mkdir -p ~/Templates && touch ~/Templates/'New Text.txt'"
-    run_task "Install Paint" "sudo snap install drawing"
-fi
+# 6. VIRTUALIZATION & GAMING
+echo "[5/6] Final Power User Tweaks..."
+sudo apt install -y qemu-kvm libvirt-daemon-system virt-manager steam-installer gamemode mangohud
+sudo usermod -aG libvirt,kvm $USER
 
-# 3. ZSH
-if [[ $choice == *1* || $choice == *4* ]]; then
-    run_task "Install ZSH" "sudo apt install -y zsh git"
-    [ ! -d "$HOME/.oh-my-zsh" ] && run_task "OhMyZsh" "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh -s -- --unattended"
-fi
+# 7. THE "MASTER SWITCH"
+echo "[6/6] Forcing Extension Master Switch..."
+gsettings set org.gnome.shell disable-user-extensions false
 
-# 4. LIB/POWER USER
-if [[ $choice == *1* || $choice == *7* ]]; then
-    run_task "RTC Clock" "timedatectl set-local-rtc 1"
-fi
-
-echo -e "\n\033[1;33m!!! CRITICAL FINAL STEP !!!\033[0m"
-echo "1. Open 'Extension Manager' (search in your apps)."
-echo "2. Click 'Browse' -> Search 'Dash to Panel' -> Install."
-echo "3. Log out and Log back in."
+echo "------------------------------------------------"
+echo "DONE! IMPORTANT NEXT STEPS:"
+echo "1. Open 'Extension Manager' app."
+echo "2. Search & Install 'Dash to Panel'."
+echo "3. REBOOT your computer."
+echo "Full log saved to: $LOG"
